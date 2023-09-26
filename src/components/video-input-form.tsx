@@ -8,8 +8,18 @@ import { getFFmpeg } from '@/lib/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 import { api } from '@/lib/axios';
 
+type Status = 'waiting' | 'converting' | 'uploading' | 'generating' | 'success';
+const statusMessages = {
+  converting: 'Convertendo...',
+  generating: 'Transcrevendo...',
+  uploading: 'Carregando...',
+  success: 'Sucesso!',
+};
+
 export function VideoInputForm() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<Status>('waiting');
+
   const promptInputRef = useRef<HTMLTextAreaElement>(null);
 
   function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
@@ -33,7 +43,7 @@ export function VideoInputForm() {
     //   console.log(log);
     // });
 
-    ffmpeg.on('progress', progress => {
+    ffmpeg.on('progress', (progress) => {
       console.log('Convert progress: ' + Math.round(progress.progress * 100));
     });
 
@@ -69,20 +79,26 @@ export function VideoInputForm() {
     if (!videoFile) return;
 
     // converte o vídeo em áudio
+    setStatus('converting');
+
     const audioFile = await convertVideoToAudio(videoFile);
 
-    const data = new FormData()
-    data.append('file', audioFile)
+    const data = new FormData();
+    data.append('file', audioFile);
 
-    const response = await api.post('/videos', data)
+    setStatus('uploading');
 
-    const videoId = response.data.video.id
+    const response = await api.post('/videos', data);
+
+    const videoId = response.data.video.id;
+
+    setStatus('generating');
 
     await api.post(`/videos/${videoId}/transcription`, {
-      prompt
-    })
+      prompt,
+    });
 
-    console.log('Finalizou')
+    setStatus('success');
   }
 
   const previewURL = useMemo(() => {
@@ -94,48 +110,60 @@ export function VideoInputForm() {
   }, [videoFile]);
 
   return (
-    <form onSubmit={handleUploadVideo} className='space-y-6'>
+    <form onSubmit={handleUploadVideo} className="space-y-6">
       <label
-        htmlFor='video'
-        className='relative border flex rounded-md aspect-video cursor-pointer border-dashed text-sm flex-col gap-2 items-center justify-center text-muted-foreground hover:bg-primary hover:text-black'
+        htmlFor="video"
+        className="relative border flex rounded-md aspect-video cursor-pointer border-dashed text-sm flex-col gap-2 items-center justify-center text-muted-foreground hover:bg-primary hover:text-black"
       >
         {previewURL ? (
           <video
             src={previewURL}
             controls={false}
-            className='pointer-events-none absolute inset-0'
+            className="pointer-events-none absolute inset-0"
           />
         ) : (
           <>
-            <FileVideo className='w-4 h-4' />
+            <FileVideo className="w-4 h-4" />
             Selecione um vídeo
           </>
         )}
       </label>
 
       <input
-        type='file'
-        id='video'
-        accept='video/mp4'
-        className='sr-only'
+        type="file"
+        id="video"
+        accept="video/mp4"
+        className="sr-only"
         onChange={handleFileSelected}
       />
 
       <Separator />
 
-      <div className='space-y-2'>
-        <Label htmlFor='transcription_prompt'>Prompt de transcrição</Label>
+      <div className="space-y-2">
+        <Label htmlFor="transcription_prompt">Prompt de transcrição</Label>
         <Textarea
           ref={promptInputRef}
-          id='transcription_prompt'
-          className='h-20 leading-relaxed resize-none'
-          placeholder='Inclua palavras-chave mencionadas no vídeo separadas por vírgula (,)'
+          disabled={status !== 'waiting'}
+          id="transcription_prompt"
+          className="h-20 leading-relaxed resize-none"
+          placeholder="Inclua palavras-chave mencionadas no vídeo separadas por vírgula (,)"
         />
       </div>
 
-      <Button type='submit' className='w-full'>
-        Carregar vídeo
-        <Upload className='w-4 h-4 ml-2' />
+      <Button
+        data-success={status === 'success'}
+        disabled={status !== 'waiting'}
+        type="submit"
+        className="w-full data-[success=true]:bg-emerald-400"
+      >
+        {status === 'waiting' ? (
+          <>
+            Carregar vídeo
+            <Upload className="w-4 h-4 ml-2" />
+          </>
+        ) : (
+          statusMessages[status]
+        )}
       </Button>
     </form>
   );
