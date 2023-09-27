@@ -41,7 +41,7 @@ export function VideoInputForm(props: VideoInputFormProps) {
 
     const ffmpeg = await getFFmpeg();
 
-    await ffmpeg.writeFile('input.mp4', await fetchFile(video));
+    await ffmpeg.writeFile('input.mov', await fetchFile(video));
 
     // ffmpeg.on('log', log => {
     //   console.log(log);
@@ -53,7 +53,7 @@ export function VideoInputForm(props: VideoInputFormProps) {
 
     await ffmpeg.exec([
       '-i',
-      'input.mp4',
+      'input.mov',
       '-map',
       '0:a',
       '-b:a',
@@ -138,7 +138,7 @@ export function VideoInputForm(props: VideoInputFormProps) {
       <input
         type="file"
         id="video"
-        accept="video/mp4"
+        accept="video/mov"
         className="sr-only"
         onChange={handleFileSelected}
       />
